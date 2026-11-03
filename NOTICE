@@ -1,0 +1,86 @@
+Magic Studios
+Copyright (c) 2026 Boundless Games, LLC
+
+The source code in this repository is licensed under the MIT License; see
+LICENSE.
+
+The MIT License covers this repository's code only. Magic Studios drives
+generative models and tools that it neither includes nor redistributes. No
+model weights are in this repository: worker machines download and install
+them, and each one is used under its own licence. Whoever runs a worker, or
+offers generation to other people from a Studio server, is responsible for
+holding the rights those licences require. This list is a guide, not legal
+advice; read each licence at its source before relying on it.
+
+
+Models used by the current pipelines
+------------------------------------
+
+MiniMax H3, and the files distributed for it
+  Used for: sprite motions, movie shots and dialogue, scene flights.
+  Files: the H3 diffusion weights and their quantised repacks (W4A8, INT8
+  ConvRot), the video and audio VAEs, and the Qwen3-VL text-encoder repack
+  (NVFP4/AWQ).
+  Licence: MiniMax H3 Community License.
+  Its grant excludes the United States, the European Union, the United
+  Kingdom and the Republic of Korea, and it carries further conditions,
+  including attribution and a revenue threshold. Do not run H3 workers, or
+  offer H3 generation to people, in those territories without separate
+  rights from MiniMax. The hosted Magic Studios service keeps H3 off for
+  public accounts for this reason.
+
+LightX2V FL2V 8-step turbo adapter for H3
+  Used for: the 16 GB desktop default (8-step sampling).
+  Licence: the LightX2V project is Apache-2.0. The adapter is trained on, and
+  only runs with, MiniMax H3, so H3's terms apply to its use as well.
+
+FLUX.2 [klein] base 4B, its VAE, and the Qwen3 4B text encoder
+  Used for: character images, poses and direction views.
+  Licence: Apache-2.0.
+
+Developer presets in local/presets (for example the legacy "turbo" preset)
+reference community conversions that are internal experiments. Check each
+file's model card before using it.
+
+
+Planned 3D pipeline (docs/design/3d-studio.md; not built yet)
+--------------------------------------------------------------
+
+  TRELLIS.2 (and its FP8 repack)          MIT
+  UniRig code and checkpoints             MIT
+  BiRefNet                                MIT
+  Mesh2Motion animation clips             CC0-1.0
+  AISmith-3D engine                       MIT
+  DINOv3 (conditioner inside TRELLIS.2)   Meta DINOv3 License: custom and
+                                          gated; accept it before use
+  Blender                                 GPL; runs as a separate program
+
+Models under the Tencent Hunyuan Community License are excluded from Studio
+for the same territorial reason as H3.
+
+
+Programs and services Studio talks to but does not include
+----------------------------------------------------------
+
+ComfyUI: GPL-3.0. Workers run it as a separate program; Studio and the worker
+  pool reach it over HTTP.
+SageAttention: Apache-2.0. An optional attention kernel on worker machines.
+FFmpeg: LGPL-2.1-or-later or GPL, depending on the build. Studio runs it as a
+  separate program; the container image installs Debian's ffmpeg package.
+Outbound GPU worker pool (Boundless-Studios/outbound-gpu-worker-pool): MIT.
+Freesound: each sound keeps the licence Freesound reports for it (CC0 by
+  default; CC-BY only when an audio set opts in). Audio releases record every
+  sound's licence and credit in their CREDITS.md.
+Higgsfield: generation sent to Higgsfield uses the caller's own key and runs
+  under Higgsfield's terms.
+
+Python and JavaScript dependencies keep their own licences; see
+pyproject.toml, uv.lock, mcp/pyproject.toml and web/package-lock.json.
+
+
+Not included
+------------
+
+The WYRM game, its trailers and screenshots, and the art on the hosted
+magicstudios.ai site are not part of this repository and are not licensed
+under the MIT License.

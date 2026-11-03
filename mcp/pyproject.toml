@@ -1,0 +1,42 @@
+[build-system]
+# Exact: the backend writes its version into the wheel, and the published checksum
+# must not change when a new setuptools comes out (scripts/build_downloads.py).
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "magic-studios-mcp"
+version = "0.2.2"
+description = "MCP server that lets an AI agent drive Magic Studios"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Boundless Games, LLC" }]
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28,<0.29",
+    "mcp>=1.2,<2",
+    "pydantic>=2.10,<3",
+]
+
+[project.urls]
+Homepage = "https://magicstudios.ai"
+Documentation = "https://magicstudios.ai/guide#agents"
+
+[project.scripts]
+magic-studios-mcp = "magic_video_studio_mcp.server:main"
+# The name local setups already use.
+magic-video-studio-mcp = "magic_video_studio_mcp.server:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

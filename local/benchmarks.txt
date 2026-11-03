@@ -1,0 +1,46 @@
+RTX 4080 16 GB local comparisons — 2026-10-15
+
+Saved boat shot: same prompt/reference/seed, 768x448, 73 frames at 24 FPS.
+H3 FL2VA W4A8 mixed, Qwen3-VL32B NVFP4/AWQ, INT8 video VAE.
+All configurations reserve zero VRAM.
+
+Windows portable 0.41.0 / Torch 2.14.0+cu130:
+20-step PyTorch                    57.45 s
+20-step Sage                       44.25 s
+20-step Comfy Kitchen              40.37 s
+20-step FirstBlockCache Safe+Sage   28.37 s
+8-step Turbo v4 Step600 EMA+Sage    23.14 s (repeat 23.12 s)
+8-step Turbo+Sage+Spectrum          24.13 s
+20-step Kitchen+Spectrum           33.13 s
+20-step Kitchen, audio decode off  40.22 s
+
+Spectrum 0.2.29 defaults, offline smoothing replay enabled, CPU history/archive,
+audio_blend_weight=0.0. The 8-step run used 5 actual +3 forecast evaluations,
+zero fallback. It worked, but added no measured speed benefit on this shot.
+20-step Kitchen+Spectrum helped latency, with approximate output.
+Peak measured VRAM approximately 15.0–15.3 GiB, no reserved headroom.
+
+WSL 0.41.0 / Torch 2.14.1+cu130:
+20-step Kitchen              42.12 s
+20-step Sage                 52.48 s (included startup; Comfy reported46.10 s)
+FirstBlockCache Safe+Sage     29.12 s
+8-step Turbo+Sage             24.35 s
+Sol test                     54.16 s — dense fallback below12288 tokens;
+                            this does NOT benchmark sparse acceleration.
+
+Single-machine observations, mostly single runs. OS versions/patch revisions
+differ; these do not isolate an inherent Windows-vs-WSL speed difference.
+Quality is not established by timings or one boat scene. Sprite fidelity must
+be assessed on character motion, silhouette, scale, feet and weapon stability.
+Default: full20-step Comfy Kitchen on native Windows. Cache/Turbo/Spectrum
+remain explicit alternatives rather than stacking every approximation.
+
+Raw results: benchmark-results.jsonl. Video files retain runtime/preset/backend.
+Current FL2VA outputs omit audio decoding/export; earlier measurements include
+audio except the explicitly marked final Kitchen run.
+
+Validation: actual browser movie generation, assembly and persistence passed.
+Desktop backend and MCP regression checks pass (see final run output).
+Frontend lint/build passed. Existing ProjectActivity test file:7 pass,4 fail
+with unmatched activity request handlers; no ProjectActivity component edits.
+PostgreSQL integration coverage was unavailable.

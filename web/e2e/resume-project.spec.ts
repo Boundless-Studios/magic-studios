@@ -1,0 +1,23 @@
+import { expect, test } from '@playwright/test'
+
+test('resumes the last workspace and allows creating and switching projects', async ({ page }, testInfo) => {
+  await page.goto('/projects/new')
+  await page.getByRole('button', { name: 'Make a movie instead' }).click()
+  await page.getByLabel('Project name').fill('Return to my film')
+  await page.getByRole('button', { name: 'Create project' }).click()
+  await page.getByRole('link', { name: 'Shots', exact: true }).click()
+  await expect(page).toHaveURL(/\/movies\/[^/]+\/shots$/)
+  await expect(page.getByRole('heading', { name: 'Make each shot count' })).toBeVisible()
+  const lastWorkspace = page.url()
+  await page.goto('/')
+  await expect(page).toHaveURL(lastWorkspace)
+  await expect(page.getByRole('heading', { name: 'Return to my film', exact: true })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('resumed-project.png'), fullPage: true })
+  await page.getByRole('link', { name: 'New project', exact: true }).click()
+  await expect(page.getByLabel('Character / project name')).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(page).toHaveURL(lastWorkspace)
+  await page.getByRole('link', { name: 'All projects', exact: true }).click()
+  await expect(page).toHaveURL(/\/projects$/)
+  await expect(page.getByRole('button', { name: 'New project', exact: true })).toBeVisible()
+})

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Magic Studios"
+  short_description: "Generate supplied-view idle, walk and attack sprites through MCP"
+  default_prompt: "Use $magic-studios to create a faithful sprite animation through my connected Magic Studios server, using its machine default."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+self-hosted-runner:
+  labels:
+    - gaia-ci-desktop
+    - gaia-cd
+    - gaia-ci-desktop
+
+config-variables: null

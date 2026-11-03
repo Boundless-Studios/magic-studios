@@ -1,0 +1,63 @@
+import { execFileSync } from 'node:child_process'
+import { stat } from 'node:fs/promises'
+import { expect, test } from '@playwright/test'
+
+import { subjectPng } from './subjectImage'
+
+// Real browser + supported local HTTP/native processing. Local deterministic provider
+// fixtures establish the manual product path, not GPU generation or art quality.
+test('one artwork creates a neutral workspace without jobs, then reviews corrections', async ({ page }, info) => {
+  await page.goto('/projects/new')
+  await page.getByLabel('Choose character image').setInputFiles(subjectPng)
+  await page.getByLabel('Character / project name').fill('Art-first human acceptance')
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(page.getByRole('button', { name: /Single direction/ })).toHaveAttribute('aria-pressed', 'true')
+  await page.screenshot({ path: info.outputPath('game-view.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Original view', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await page.getByRole('checkbox', { name: /Walk/ }).uncheck()
+  await page.getByRole('checkbox', { name: /Death/ }).check()
+  await page.getByRole('button', { name: 'Continue', exact: true }).click()
+  await page.screenshot({ path: info.outputPath('review.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/motions$/)
+  const id = page.url().split('/').at(-2)!
+  const read = async () => (await page.request.get(`/studio/projects/${id}`, { headers: { 'X-Studio-Setup-Version': '1' } })).json()
+  const initial = await read(); expect(initial.manifest.sprite_layout).toBe('single_view'); expect(initial.manifest.views[0].heading).toBeNull()
+  expect(initial.manifest.motions.map((motion: { preset: string }) => motion.preset).sort()).toEqual(['death', 'idle'])
+  expect((await (await page.request.get(`/studio/projects/${id}/operations`)).json())).toEqual([])
+  await page.getByRole('button', { name: 'Edit artwork & directions' }).click()
+  await page.getByLabel('Replace art').setInputFiles(subjectPng)
+  await expect(page.getByRole('button', { name: 'Review changes' })).toBeEnabled()
+  const staged = await read(); expect(staged.revision).toBe(initial.revision)
+  await page.getByRole('button', { name: 'Remove animation · Death' }).click()
+  await page.getByRole('button', { name: 'Review changes' }).click()
+  await page.screenshot({ path: info.outputPath('correction.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Confirm exact changes' }).click()
+  await expect(page.getByRole('dialog', { name: 'Edit workspace setup' })).not.toBeVisible()
+  await page.reload(); await expect(page.getByRole('button', { name: /Original view · 1 animations/ })).toBeVisible()
+  expect((await read()).manifest.motions.map((motion: { preset: string }) => motion.preset)).toEqual(['idle'])
+  await page.screenshot({ path: info.outputPath('workspace.png'), fullPage: true })
+  const sheet = info.outputPath('manual-source.png')
+  execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', subjectPng, '-filter_complex', '[0:v]split=4[a][b][c][d];[a][b][c][d]hstack=inputs=4', '-frames:v', '1', sheet])
+  const expand = page.getByRole('button', { name: 'Expand', exact: true }); if (await expand.isVisible()) await expand.click()
+  await page.getByRole('button', { name: 'or upload a clip you already have' }).click()
+  await page.getByLabel('Upload existing animation').setInputFiles(sheet)
+  await page.getByLabel('Uploaded frame count').fill('4')
+  await page.getByRole('button', { name: 'Add as candidate' }).click()
+  const take = page.getByRole('listitem', { name: /Take/ }).first(); await expect(take).toBeVisible()
+  await take.getByRole('button', { name: 'Edit frames', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Idle frame editor' })).toBeVisible()
+  await page.getByRole('button', { name: 'Exclude frame 2', exact: true }).click()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.getByRole('button', { name: 'Save revision', exact: true }).click()
+  await take.getByRole('button', { name: 'Download', exact: true }).click()
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'PNG', exact: true }).click()
+  const download = await downloading; const destination = info.outputPath('human-export.png'); await download.saveAs(destination)
+  expect((await stat(destination)).size).toBeGreaterThan(0)
+
+})

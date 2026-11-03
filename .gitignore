@@ -1,0 +1,53 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.agentic-pr-dash/
+.venv/
+dist/
+build/
+src/magic_video_editor/worker_packages/
+# Built by scripts/build_downloads.py; served under /studio/downloads.
+src/magic_video_editor/download_files/
+*.egg-info/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# secret-bearing OpenTofu plan artifacts (deploy.sh normally cleans these)
+infra/deployment.plan
+infra/bootstrap-iap-backend.plan
+# ...and any other saved plan, including a locally saved bootstrap plan: a
+# plan file carries the sensitive variables and a snapshot of the state.
+*.plan
+
+# Local desktop runtime data and logs
+local/data/
+local/*.log
+local/*.pid
+local/*.png
+local/*.mp4
+local/*.webm
+local/*.gif
+local/*.zip
+local/orc-mcp-project*.json
+local/*-takes.json
+local/runtime.env
+# Generated study evidence, review media, and per-project snapshots
+local/attack-study/
+local/walk-speed-study/
+local/*.json
+local/*.txt
+!local/README.txt
+!local/benchmarks.txt
+!local/*requirements.lock.txt
+web/public/artifacts/
+web/public/mockups/
+
+# Art and media live in private GitHub releases, not Git (see scripts/site_media.json
+# and release art-archive-2026-11-02). tests/test_repository_media.py enforces this.
+web/public/experiments/
+web/public/wyrm/
+docs/proofs/
+web/src/features/welcome/media/
+web/sticky-*.png

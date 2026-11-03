@@ -1,0 +1,6 @@
+interface:
+  display_name: "Magic Studios"
+  short_description: "Animate characters, make movies and fly through scenes with Magic Studios"
+  default_prompt: "Use $magic-studios to make this with my Magic Studios MCP connection."
+policy:
+  allow_implicit_invocation: true
