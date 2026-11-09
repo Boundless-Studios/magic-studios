@@ -225,6 +225,10 @@ def create_local_studio_runtime(*, inline_dispatch: bool = True) -> InMemoryRunt
         media=AudioMedia(),
         movie_service=runtime.movie_service,
     )
+    from magic_video_editor.assets3d.service import Assets3DService
+    from magic_video_editor.assets3d.store import MemoryAssets3DStore
+
+    runtime.assets3d_service = Assets3DService(MemoryAssets3DStore(), assets)
     runtime.target_registry = registry
     # Extensions named in MAGIC_VIDEO_EDITOR_EXTENSIONS run here too, on in-memory
     # stores; with a database URL their stores use PostgreSQL, as when hosted.

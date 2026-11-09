@@ -1439,3 +1439,53 @@ async def check_view_draft(client: StudioClient, project_id: str, draft_id: str,
 async def discard_view_draft(client: StudioClient, project_id: str, draft_id: str) -> dict[str, Any]:
     return await client.mutate("POST", f"{_project_path(project_id)}/view-drafts/{quote(draft_id, safe='')}/discard",
                                project_id=project_id)
+
+
+# 3D assets: engine stages. A stage that is not available is reported, with the
+# server's reason, from capabilities before anything is submitted.
+def _asset3d_path(asset_id: str, suffix: str = "") -> str:
+    return f"/studio/3d/{quote(asset_id, safe='')}{suffix}"
+
+
+async def get_3d_capabilities(client: StudioClient) -> dict[str, Any]:
+    return await client.get("/studio/3d/capabilities")
+
+
+async def _run_3d_stage(
+    client: StudioClient, asset_id: str, stage: str, body: dict[str, Any]
+) -> dict[str, Any]:
+    stages = (await get_3d_capabilities(client)).get("stages", {})
+    availability = stages.get(stage) or {}
+    if not availability.get("available"):
+        reason = availability.get("reason") or f"not available yet: the server offers no {stage} stage"
+        return {"available": False, "stage": stage, "reason": reason}
+    try:
+        asset = await client.request("POST", _asset3d_path(asset_id, f"/stages/{stage}"), json=body)
+    except StudioApiError as error:
+        detail = error.detail if isinstance(error.detail, dict) else {}
+        if error.status_code == 409 and detail.get("code") == "stage_unavailable":
+            # It became unavailable between the two calls; say why, as above.
+            return {"available": False, "stage": stage, "reason": detail.get("message")}
+        raise
+    operation = next((o for o in asset.get("operations", []) if o.get("request_id") == body["request_id"]), None)
+    return {"available": True, "stage": stage, "operation": operation, "asset_id": asset_id,
+            "revision": asset.get("revision")}
+
+
+async def generate_3d_mesh(
+    client: StudioClient, asset_id: str, resolution: int | None = None, seed: int | None = None,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    settings = {k: v for k, v in (("resolution", resolution), ("seed", seed)) if v is not None}
+    return await _run_3d_stage(client, asset_id, "mesh", {
+        "request_id": _request_id(request_id), "settings": settings})
+
+
+async def clean_3d_mesh(
+    client: StudioClient, asset_id: str, parent_id: str, quality_tier: str | None = None,
+    target_triangles: int | None = None, request_id: str | None = None,
+) -> dict[str, Any]:
+    settings = {k: v for k, v in (("quality_tier", quality_tier), ("target_triangles", target_triangles))
+                if v is not None}
+    return await _run_3d_stage(client, asset_id, "clean", {
+        "request_id": _request_id(request_id), "parent_id": parent_id, "settings": settings})

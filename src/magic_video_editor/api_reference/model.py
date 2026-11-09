@@ -29,6 +29,7 @@ TAGS: dict[str, str] = {
     "Movies": "Short films: cast, shots, takes, the cut and its release.",
     "Scene flights": "Camera moves between location images.",
     "Audio": "Sound sets: free sounds and uploads per cue, review, and licensed release packs.",
+    "3D": "3D assets: source pictures, meshes you bring, review, selection and release packs.",
     "Downloads": "The MCP server and the agent skill, with their SHA-256.",
     "Reference data": "Presets and installed export targets.",
 }

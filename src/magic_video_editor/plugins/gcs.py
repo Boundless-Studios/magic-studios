@@ -26,7 +26,7 @@ from magic_video_editor.contracts import (
 SIGNED_UPLOAD_URL_TTL = timedelta(minutes=15)
 SIGNED_READ_URL_TTL = timedelta(minutes=5)
 # Where pool job inputs live: studio subjects and references, pool API sources,
-# and movie uploads, frames and plates.
+# movie uploads, frames and plates, and 3D asset pictures and meshes.
 POOL_INPUT_PREFIXES = (
     "sources/studio/",
     "outputs/studio/",
@@ -34,6 +34,8 @@ POOL_INPUT_PREFIXES = (
     "outputs/pool/",
     "uploads/movies/",
     "outputs/movies/",
+    "uploads/assets3d/",
+    "outputs/assets3d/",
 )
 
 
@@ -197,7 +199,7 @@ class GcsAssetStore:
         self, key: str, content_type: str, *, max_bytes: int | None = None
     ) -> str:
         object_key = _validate_object_key(key)
-        if not object_key.startswith(("sources/", "uploads/movies/", "uploads/audio/")):
+        if not object_key.startswith(("sources/", "uploads/movies/", "uploads/audio/", "uploads/assets3d/")):
             raise ValueError("signed upload key must be in sources/")
         try:
             if self._ambient_credentials is not None:

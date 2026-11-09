@@ -251,6 +251,7 @@ class ProductionLifecycle:
         prompt_refusals: RuntimeLifecycle | None = None,
         item_activity: RuntimeLifecycle | None = None,
         audio_store: RuntimeLifecycle | None = None,
+        assets3d_store: RuntimeLifecycle | None = None,
         extension_components: Iterable[RuntimeLifecycle] = (),
     ) -> None:
         self._components = tuple(
@@ -264,6 +265,7 @@ class ProductionLifecycle:
                 studio_enrolment,
                 movie_store,
                 audio_store,
+                assets3d_store,
                 provider_accounts,
                 prompt_refusals,
                 item_activity,
@@ -1242,6 +1244,7 @@ def create_app(
                     else (runtime.movie_service.erase_owner,)
                 )
                 + (() if runtime.audio_service is None else (runtime.audio_service.erase_owner,))
+                + (() if runtime.assets3d_service is None else (runtime.assets3d_service.erase_owner,))
                 + tuple(erase for extension in runtime.extensions for erase in extension.owner_erasers),
             )
         )
@@ -1276,6 +1279,12 @@ def create_app(
             runtime.studio_service.machine_defaults = HostedMachineDefaults(
                 pool_service, runtime.studio_service._tenant_for, runtime.studio_service.operators
             )
+            stages = getattr(runtime.assets3d_service, "stages", None)
+            if stages is not None:
+                # 3D stages resolve their pinned worker through the same tenant-
+                # scoped discovery as motions.
+                stages.pool = pool_service
+                stages.machines = runtime.studio_service.machine_defaults
 
         # Declared before the library router so it wins the path: the library's
         # own `/pool/workers` takes `tenant_id` as a query parameter, which would
@@ -1362,6 +1371,9 @@ def create_app(
     if runtime.audio_service is not None and role in {ServiceRole.ALL, ServiceRole.API}:
         from magic_video_editor.audio.routes import create_audio_router
         application.include_router(create_audio_router(runtime.audio_service))
+    if runtime.assets3d_service is not None and role in {ServiceRole.ALL, ServiceRole.API}:
+        from magic_video_editor.assets3d.routes import create_assets3d_router
+        application.include_router(create_assets3d_router(runtime.assets3d_service))
     if (
         role in {ServiceRole.ALL, ServiceRole.COORDINATOR}
         and runtime.worker_pool is not None
@@ -1563,6 +1575,8 @@ def runtime_from_env(
     movie_service = None
     audio_store = None
     audio_service = None
+    assets3d_store = None
+    assets3d_service = None
     subject_generator = None
     if subject_plugin == "http":
         subject_endpoint = values.get("MAGIC_VIDEO_EDITOR_SUBJECT_ENDPOINT")
@@ -1788,10 +1802,57 @@ def runtime_from_env(
             work_guard=audio_work_guard,
             movie_service=movie_service,
         )
-        studio_service.additional_running_jobs = movie_service.running_jobs
+        from magic_video_editor.assets3d.service import Asset3DError, Assets3DService
+        from magic_video_editor.assets3d.stages import StageEngine, generation_enabled
+        from magic_video_editor.assets3d.store import PostgresAssets3DStore
+
+        async def assets3d_work_guard(owner: str, requested: int) -> None:
+            from magic_video_editor.movies.service import MovieError
+
+            try:
+                await movie_work_guard(owner, requested)
+            except MovieError as e:
+                raise Asset3DError(str(e), e.status) from e
+
+        async def assets3d_allowance(owner: str) -> int | None:
+            # The owner's limit less what every other section stores; 3D grants
+            # reserve against it under the store's per-owner lock.
+            limit = (await studio_service.owner_usage(owner)).storage_limit_bytes
+            if not limit:
+                return None
+            others = (
+                await studio_owner_usage.stored_bytes(owner)
+                + await movie_store.stored_bytes(owner)
+                + await audio_store.stored_bytes(owner)
+            )
+            return limit - others
+
+        assets3d_store = PostgresAssets3DStore(database_url)
+        assets3d_service = Assets3DService(
+            assets3d_store,
+            assets,
+            account_policy=account_policy,
+            work_guard=assets3d_work_guard,
+            storage_allowance=assets3d_allowance,
+            # Off unless set; even on, nothing runs while the engine profile is
+            # unqualified. The pool and machine discovery attach in create_app.
+            stages=StageEngine(
+                enabled=generation_enabled(values),
+                own_tenant_for=studio_service._own_tenant_for,
+            ),
+        )
+
+        async def running_jobs(owner: str) -> int:
+            return await movie_service.running_jobs(owner) + await assets3d_service.running_jobs(owner)
+
+        studio_service.additional_running_jobs = running_jobs
 
         async def stored_bytes(owner: str) -> int:
-            return await movie_store.stored_bytes(owner) + await audio_store.stored_bytes(owner)
+            return (
+                await movie_store.stored_bytes(owner)
+                + await audio_store.stored_bytes(owner)
+                + await assets3d_store.stored_bytes(owner)
+            )
 
         studio_service.additional_stored_bytes = stored_bytes
         retention_sweeper = RetentionSweeper(
@@ -1824,6 +1885,7 @@ def runtime_from_env(
             prompt_refusals,
             item_activity,
             audio_store,
+            assets3d_store,
             tuple(component for extension in extensions for component in extension.components),
         ),
         dispatcher=dispatcher,
@@ -1848,6 +1910,7 @@ def runtime_from_env(
         worker_pool=worker_pool,
         movie_service=movie_service,
         audio_service=audio_service,
+        assets3d_service=assets3d_service,
         extensions=extensions,
         retention_sweeper=retention_sweeper,
         retention_sweep_caller=_retention_sweep_caller(values),

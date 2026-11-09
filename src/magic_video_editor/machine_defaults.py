@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from outbound_gpu_worker_pool.machine_profiles import (
-    CONFIG_KEY, LAST_FRAME_FEATURE_KEY, RECIPE_KEY, LIGHTX8, STANDARD, describe_profile,
+    CONFIG_KEY, LAST_FRAME_FEATURE_KEY, RECIPE_KEY, LIGHTX8, STANDARD, describe_profile, recipe_key,
 )
 from magic_video_editor.studio.models import MotionGenerationSettings
 
@@ -28,14 +28,26 @@ def _unavailable_reason(view, profile, recent: bool) -> str:
     return f"It is not available ({view.status.value}, {gb(view.vram_mb or 0)})"
 
 
+def engine_keys(versions: dict[str, str], profile: str, recipe_version: str) -> tuple[str, str] | None:
+    """The (recipe, configuration) runtime-version keys under which a worker
+    registered this profile's recipe: plain when it is the runtime's first
+    profile, namespaced (`magic_recipe@<profile>`) otherwise. None when it did not."""
+    for key in (RECIPE_KEY, recipe_key(profile)):
+        if versions.get(key) == recipe_version:
+            return key, (CONFIG_KEY if key == RECIPE_KEY else recipe_key(profile, CONFIG_KEY))
+    return None
+
+
 class HostedMachineDefaults:
     def __init__(self, pool, tenant_for, operators=None):
         self.pool = pool
         self.tenant_for = tenant_for
         self.operators = operators
 
-    async def discover(self, owner_id: str, worker_id: str | None = None, *,
-                       needs_last_frame: bool = False, only_profile: str | None = None) -> dict[str, Any]:
+    async def _views(self, owner_id: str) -> tuple[str | None, list[Any]]:
+        """The tenant this owner's work runs in, and the machines it may use there,
+        revoked ones left out. A public account's tenant is its own (`_tenant_for`),
+        so house machines are never among them."""
         tenant = await self.tenant_for(owner_id)
         operators = self.operators
         if (operators is not None and tenant in operators.shared_tenants
@@ -47,12 +59,58 @@ class HostedMachineDefaults:
             views = await self.pool.worker_views(tenant_id=tenant)
             # The pool's None argument means all tenants; enforce house-only here.
             views = [v for v in views if v.tenant_id == tenant]
-        rows = []
+        kept = []
         for view in views:
             if operators is not None:
                 enrolled = await operators.enrolment.worker_by_id(view.worker_id)
                 if enrolled is not None and enrolled.revoked:
                     continue
+            kept.append(view)
+        return tenant, kept
+
+    async def discover_engine(self, owner_id: str, profile: str, capability_id: str) -> dict[str, Any]:
+        """Machines that serve one engine profile's capability, and the one to pin.
+
+        A worker registers its first profile's recipe under the plain keys and any
+        further profile's under `<key>@<profile>`; the job pins whichever key the
+        worker used. Only that profile's exact recipe counts: no other profile is
+        ever a fallback."""
+        tenant, views = await self._views(owner_id)
+        description = describe_profile(profile)
+        rows = []
+        for view in views:
+            versions = view.runtime_versions
+            keys = engine_keys(versions, profile, description['recipe_version'])
+            recent = (view.last_heartbeat_at is not None
+                      and (datetime.now(UTC) - view.last_heartbeat_at).total_seconds() <= 90)
+            reason = None
+            if keys is None or capability_id not in view.capability_ids:
+                reason = f'It does not serve the {profile} recipe'
+            elif not versions.get(keys[1]):
+                reason = 'It did not report its configuration; update the worker'
+            elif (view.vram_mb or 0) < description['min_vram_mb']:
+                reason = f"It has less than {description['min_vram_mb']} MB of VRAM"
+            elif view.draining:
+                reason = 'It is shutting down'
+            elif not recent or view.status.value not in ('online', 'busy'):
+                reason = 'It is offline'
+            rows.append({'worker_id': view.worker_id, 'status': view.status.value,
+                         'available': reason is None, 'reason': reason,
+                         'recipe_key': keys[0] if keys else None,
+                         'configuration_key': keys[1] if keys else None,
+                         'recipe_version': description['recipe_version'] if keys else None,
+                         'configuration_version': versions.get(keys[1]) if keys else None})
+        candidates = sorted((r for r in rows if r['available']),
+                            key=lambda r: (r['status'] != 'online', r['worker_id']))
+        return {'tenant_id': tenant, 'profile': profile, 'capability_id': capability_id,
+                'min_vram_mb': description['min_vram_mb'], 'workers': rows,
+                'selected': candidates[0] if candidates else None}
+
+    async def discover(self, owner_id: str, worker_id: str | None = None, *,
+                       needs_last_frame: bool = False, only_profile: str | None = None) -> dict[str, Any]:
+        _, views = await self._views(owner_id)
+        rows = []
+        for view in views:
             if worker_id and view.worker_id != worker_id:
                 continue
             versions = view.runtime_versions

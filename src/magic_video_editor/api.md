@@ -1152,6 +1152,107 @@ returns the zip: `audio/`, `originals/`, `manifest.json` and `CREDITS.md`.
 movies as a soundtrack cue. CC-BY sounds are refused, because movie releases carry no
 credits yet.
 
+## Make a 3D asset
+
+A 3D asset is a character or a prop, built in stages: `mesh`, then `clean`, and later
+`rig`, `clip`, `export` and `render`. Each stage collects candidates, GLB files you
+keep or reject; you select one per stage, and release the selection as a zip with a
+manifest and credits. `mesh` and `clean` run on the 3D engine through the worker
+pool, but not yet: `GET /studio/3d/capabilities` reports them unavailable, with a
+reason starting "not available yet", while generation is switched off or the engine
+profile is not qualified. What works for every account now is bringing your own GLB,
+viewing it, reading its structure and releasing it. Every write except a stage run
+carries `expected_revision`, and a stale one answers `409` with `current_revision`.
+
+### 1. Create an asset and add its pictures
+
+```http
+POST /studio/3d
+Content-Type: application/json
+
+{"name": "Oak crate", "kind": "prop"}
+```
+
+Files go through `POST /studio/3d/{id}/uploads` with `{"content_type": "image/png"}`
+(or `image/jpeg`, `image/webp`, `model/gltf-binary`): PUT the bytes to `upload_url`
+with that `Content-Type` and the returned `upload_headers`, which always carry the
+size ceiling here (20 MB for a picture, 200 MB for a GLB). The type you upload with
+must be what the file is. Until you use it, a grant counts its full ceiling against
+your storage (send `byte_length`, the file's size, to reserve and allow only that),
+and an asset holds at most 8 unused grants. Then make the picture one
+of the four views:
+
+```http
+POST /studio/3d/{id}/sources
+Content-Type: application/json
+
+{"expected_revision": 2, "role": "front", "asset_key": "uploads/assets3d/…", "file_name": "front.png"}
+```
+
+`role` is `front`, `back`, `left` or `right`. A new picture for a role replaces the
+old one; the old file stays stored until you delete the asset.
+
+### 2. Bring your own mesh
+
+```http
+POST /studio/3d/{id}/meshes
+Content-Type: application/json
+
+{"expected_revision": 4, "asset_key": "uploads/assets3d/…", "file_name": "crate.glb"}
+```
+
+The file must be a self-contained binary glTF 2.0. It becomes a `mesh` candidate whose
+`measured` counts its meshes, primitives, triangles, vertices, nodes, materials,
+textures, images, skins, joints and animations, with the POSITION bounds (node
+transforms are not applied). `GET /studio/3d/{id}/assets/{key}` streams it to you
+for a viewer.
+
+### Engine stages, once available
+
+```http
+POST /studio/3d/{id}/stages/{stage}
+Content-Type: application/json
+
+{"request_id": "orc-mesh-1", "settings": {"resolution": 1024, "seed": 7}}
+```
+
+`{stage}` is `mesh` or `clean`. A mesh is made from the source pictures (a `front` one is required); a clean from a
+kept or selected mesh candidate, `{"request_id": …, "parent_id": "<mesh>",
+"settings": {"quality_tier": "standard"}}`. Studio pins one machine on the engine
+profile and records the run in `operations` before submitting it; a repeated
+`request_id` returns the same run. `POST /studio/3d/{id}/reconcile` folds a finished
+run into a candidate (`origin: engine`) whose provenance and gate are what the
+worker attested. While stages are unavailable, both answer `409`
+(`stage_unavailable`) and nothing is submitted. Public accounts run stages only on a
+machine of their own.
+
+### 3. Review, select and release
+
+```http
+POST /studio/3d/{id}/candidates/{candidate_id}/review
+Content-Type: application/json
+
+{"expected_revision": 5, "outcome": "keep", "note": "clean silhouette", "sha256": "…"}
+```
+
+A review is bound to the file's hash and records whether a person or an API key gave
+it. `PUT /studio/3d/{id}/selections` takes `{"expected_revision": 6, "selections":
+{"mesh": "<candidate_id>"}}`; only kept candidates can be selected, and a candidate
+made from a parent (a clean made from a mesh) needs that parent selected.
+`GET /studio/3d/{id}/readiness` lists what blocks a release; then:
+
+```http
+POST /studio/3d/{id}/release
+Content-Type: application/json
+
+{"expected_revision": 7, "name": "v1"}
+```
+
+A release never changes. `GET /studio/3d/{id}/releases/{release_id}/download`
+returns the zip: `model/<asset>.glb` (the selected clean candidate, else the mesh),
+`sources/`, `manifest.json` with the chain's hashes, provenance and reviews, and
+`CREDITS.md`.
+
 ## Revisions in movies and scene flights
 
 Most writes to an existing movie or scene flight carry `expected_revision` and return
@@ -1182,6 +1283,8 @@ Deletion is permanent. Each request repeats the name of what it deletes:
 DELETE /studio/projects/{project_id}        {"confirm_name": "Ember Knight"}
 DELETE /studio/movies/{movie_id}            {"confirm_name": "Heist"}
 DELETE /studio/scene-flights/{flight_id}    {"confirm_name": "Canyon"}
+DELETE /studio/audio/{id}                   {"confirm_name": "Glass"}
+DELETE /studio/3d/{id}                      {"confirm_name": "Oak crate"}
 ```
 
 Each answers `204`, and removes the item's files (every stored version), jobs,
@@ -1189,8 +1292,8 @@ releases, exports and history; a wrong name is `422`
 (`deletion_not_confirmed`), and someone else's item is `404`.
 
 `DELETE /studio/account` with `{"confirm_email": "<your account email>"}` deletes the
-whole account: every project, movie and scene flight, saved provider keys, API keys,
-attached machines, sessions and the user record. It accepts a browser session only,
+whole account: every project, movie, scene flight, audio set and 3D asset, saved
+provider keys, API keys, attached machines, sessions and the user record. It accepts a browser session only,
 never an API key, and answers with the Auth0 `logout_url` the browser should visit.
 
 ## Automatic deletion of inactive work

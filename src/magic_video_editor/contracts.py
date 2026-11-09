@@ -497,9 +497,10 @@ def upload_size_headers(max_bytes: int | None) -> dict[str, str]:
     return {UPLOAD_SIZE_HEADER: f"0,{max_bytes}"} if max_bytes is not None else {}
 
 
-# One project's, movie's or audio set's own storage, and nothing wider.
+# One project's, movie's, audio set's or 3D asset's own storage, and nothing wider.
 DELETABLE_PREFIX = re.compile(
-    r"^(sources/studio|outputs/studio|exports/studio|uploads/movies|outputs/movies|uploads/audio|outputs/audio)"
+    r"^(sources/studio|outputs/studio|exports/studio|uploads/movies|outputs/movies|uploads/audio|outputs/audio"
+    r"|uploads/assets3d|outputs/assets3d)"
     r"/[A-Za-z0-9][A-Za-z0-9_-]{0,127}/$"
 )
 
@@ -1092,6 +1093,7 @@ class Runtime:
     studio_enrolment: "StudioEnrolmentStore | None" = None
     movie_service: object | None = None
     audio_service: object | None = None
+    assets3d_service: object | None = None
     # The extensions this runtime was built with (see `magic_video_editor.extensions`).
     extensions: "tuple[Extension, ...]" = ()
     # The hourly inactivity sweep, and who may call it: (OIDC audience, the

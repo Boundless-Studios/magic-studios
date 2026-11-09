@@ -11,11 +11,32 @@ updates arrive as sync commits.
 
 You can still open issues and pull requests here as usual. When a maintainer
 accepts a pull request, they apply it to the internal repository with your
-authorship kept, and it comes back here in the next sync. Your pull request is
-then closed with a link to the sync commit rather than merged directly.
+authorship and sign-off kept, and it comes back here in the next sync. Your
+pull request is then closed with a link to the sync commit rather than merged
+directly.
 
-By contributing, you agree that your contribution is licensed under this
+## Licence and sign-off
+
+Contributions come in under the same licence they go out under: by
+contributing, you agree that your contribution is licensed under this
 repository's MIT License.
+
+Every commit must carry a `Signed-off-by` line. The line certifies the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/): that
+you wrote the change, or otherwise have the right to submit it under the MIT
+License. Add it with `git commit -s`. It must use your real name and an email
+address where you can be reached:
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+CI checks every commit in a pull request for this line, merge commits included,
+and a pull request with unsigned commits will not be accepted. To sign commits
+you have already made, run `git rebase --signoff <base-branch>` and force-push
+your branch. Bring your branch up to date by rebasing rather than merging, or
+sign the merge with `git merge --signoff`. GitHub's *Update branch* button
+makes an unsigned merge commit.
 
 ## Before you start
 

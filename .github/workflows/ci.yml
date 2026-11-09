@@ -70,3 +70,31 @@ jobs:
       - run: DOCKER_BUILDKIT=1 docker build --tag magic-video-editor:test .
       - name: Render movie transitions in the shipping runtime
         run: docker run --rm -i --entrypoint python magic-video-editor:test - < scripts/check_movie_transitions.py
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # CONTRIBUTING.md: every commit is signed off by its author (git commit -s),
+      # certifying the Developer Certificate of Origin. Merge commits too: a
+      # conflict resolution can carry code of its own.
+      - name: Every commit in the pull request is signed off by its author
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for commit in $(git rev-list "$BASE_SHA..$HEAD_SHA"); do
+            email=$(git log -1 --format='%ae' "$commit")
+            trailers=$(git log -1 --format='%B' "$commit" | grep -i '^Signed-off-by:' || true)
+            if ! grep -qiF "<$email>" <<<"$trailers"; then
+              echo "::error::Commit $commit has no Signed-off-by line for its author. See CONTRIBUTING.md."
+              missing=1
+            fi
+          done
+          exit "$missing"

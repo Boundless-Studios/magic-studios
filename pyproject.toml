@@ -19,7 +19,7 @@ dependencies = [
     "google-auth>=2.38,<3",
     "httpx>=0.28,<0.29",
     "numpy>=2,<3",
-    "outbound-gpu-worker-pool[coordinator] @ git+https://github.com/Boundless-Studios/outbound-gpu-worker-pool@54df806bdf2e786673945ae6ec5f0c8890d3bfb1",
+    "outbound-gpu-worker-pool[coordinator] @ git+https://github.com/Boundless-Studios/outbound-gpu-worker-pool@3bd0e45a647075209a0e1f062b3c16787aa96cc5",
     "Pillow>=11,<12",
     "pydantic==2.12.5",
     "sentry-sdk[fastapi]==2.68.1",

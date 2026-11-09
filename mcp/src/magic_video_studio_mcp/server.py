@@ -398,6 +398,49 @@ async def send_audio_to_movie(
     return _json(await tools.send_audio_to_movie(client(), set_id, candidate_id, movie_id))
 
 
+Asset3DId = Annotated[str, Field(description="The 3D asset's id.")]
+RequestId = Annotated[str | None, Field(
+    description="Reuse only to retry the exact same call; a repeated id returns the same run.")]
+
+
+@mcp.tool()
+async def get_3d_capabilities() -> str:
+    """What 3D assets can do for this account. Each engine stage (`mesh`, `clean`)
+    says whether it can run and, when not, why: its reason starts "not available yet"."""
+    return _json(await tools.get_3d_capabilities(client()))
+
+
+@mcp.tool()
+async def generate_3d_mesh(
+    asset_id: Asset3DId,
+    resolution: Annotated[int | None, Field(description="512 or 1024 (default 1024).")] = None,
+    seed: Annotated[int | None, Field(description="0 to 2147483647; random when omitted, and recorded.")] = None,
+    request_id: RequestId = None,
+) -> str:
+    """Generate a mesh candidate from the asset's source pictures (a front picture is
+    required) on the 3D engine. When the stage is not available this returns
+    `available: false` with the server's reason and submits nothing. A run lands as a
+    candidate after the asset is reconciled; inspect its gate, then keep or reject it."""
+    return _json(await tools.generate_3d_mesh(client(), asset_id, resolution, seed, request_id))
+
+
+@mcp.tool()
+async def clean_3d_mesh(
+    asset_id: Asset3DId,
+    parent_id: Annotated[str, Field(description="A mesh candidate you kept or selected.")],
+    quality_tier: Annotated[str | None, Field(
+        description="'draft', 'standard', 'high' or 'ultra' (default 'standard'). Not with target_triangles.")] = None,
+    target_triangles: Annotated[int | None, Field(
+        description="1,000 to 500,000. Not with quality_tier.")] = None,
+    request_id: RequestId = None,
+) -> str:
+    """Clean a kept mesh candidate on the 3D engine: one watertight, UV-mapped,
+    floor-aligned body at a triangle budget. When the stage is not available this
+    returns `available: false` with the server's reason and submits nothing."""
+    return _json(await tools.clean_3d_mesh(
+        client(), asset_id, parent_id, quality_tier, target_triangles, request_id))
+
+
 @mcp.tool()
 async def generate_subject(
     project_id: ProjectId,

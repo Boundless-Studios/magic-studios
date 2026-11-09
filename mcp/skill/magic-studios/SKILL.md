@@ -101,6 +101,10 @@ Call `get_audio_capabilities` first. `free_sounds_available` says whether Freeso
 
 Audio generation (voices, sound effects, music) is not available yet.
 
+## 3D engine stages
+
+3D assets (bring your own GLB, review, release) are reached through the API at `/studio/3d`; their engine stages are not available yet. `get_3d_capabilities` says so per stage, with a reason that starts "not available yet". `generate_3d_mesh` and `clean_3d_mesh` check it first and return `available: false` with that reason instead of submitting. Pass the reason on to the user; do not retry. Once a stage is available, run one stage at a time: generate, look at the candidate's gate and measurements, have the user keep or reject it, then clean a kept mesh.
+
 The call sequences for all four are in [references/workflow.md](references/workflow.md).
 
 ## Report

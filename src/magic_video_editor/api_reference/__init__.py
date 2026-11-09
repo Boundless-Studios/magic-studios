@@ -25,6 +25,7 @@ from fastapi.routing import APIRoute
 from pydantic import TypeAdapter
 
 from magic_video_editor.api_reference.account import ROUTES as ACCOUNT_ROUTES
+from magic_video_editor.api_reference.assets3d import ROUTES as ASSETS3D_ROUTES
 from magic_video_editor.api_reference.audio import ROUTES as AUDIO_ROUTES
 from magic_video_editor.api_reference.media import ROUTES as MEDIA_ROUTES
 from magic_video_editor.api_reference.model import ERROR_TEXT, TAGS, RouteDoc
@@ -62,7 +63,8 @@ ASSETS: dict[str, tuple[str, str]] = {
 STATIC = Path(__file__).parent / "static"
 
 DOCS: dict[tuple[str, str], RouteDoc] = {
-    **ACCOUNT_ROUTES, **PROJECT_ROUTES, **MOTION_ROUTES, **MEDIA_ROUTES, **AUDIO_ROUTES
+    **ACCOUNT_ROUTES, **PROJECT_ROUTES, **MOTION_ROUTES, **MEDIA_ROUTES, **AUDIO_ROUTES,
+    **ASSETS3D_ROUTES,
 }
 
 # Under /studio but not for callers: what an attaching machine downloads and
